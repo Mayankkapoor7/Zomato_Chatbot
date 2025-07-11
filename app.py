@@ -12,8 +12,6 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.embeddings import OpenAIEmbeddings
-
-# ✅ Setup
 openai_key = os.getenv("OPENAI_API_KEY")
 if not openai_key:
     st.error("OPENAI_API_KEY not set")
@@ -31,7 +29,6 @@ vectorstore = FAISS.from_documents(docs, embedding=embedding)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
 qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
 
-# ✅ Prompt Templates
 restaurant_match_prompt = PromptTemplate(
     input_variables=["query"],
     template="""
@@ -68,15 +65,12 @@ As a logistics assistant, what is the estimated delivery time in minutes for "{r
 Return only a number, without units or extra text.
 """
 )
-
-# ✅ Chains
 restaurant_chain = LLMChain(llm=llm, prompt=restaurant_match_prompt)
 menu_chain = LLMChain(llm=llm, prompt=menu_prompt)
 eta_chain = LLMChain(llm=llm, prompt=eta_prompt)
 
-# ✅ Streamlit State Setup
-st.set_page_config(page_title="🧠 Zomato Chatbot (RAG)")
-st.title("🍽️ Zomato Chatbot (Persona + RAG)")
+st.set_page_config(page_title="Zomato Chatbot (RAG)")
+st.title("🍽Zomato Chatbot (Persona + RAG)")
 
 if "matched_restaurants" not in st.session_state:
     st.session_state.matched_restaurants = []
@@ -90,34 +84,28 @@ if "past_orders" not in st.session_state:
     st.session_state.past_orders = []
 if "show_past_orders" not in st.session_state:
     st.session_state.show_past_orders = False
-
-# ✅ Sidebar Controls
 with st.sidebar:
-    st.subheader("📋 Options")
-    if st.button("🧾 Show/Hide Past Orders"):
+    st.subheader("Options")
+    if st.button("Show/Hide Past Orders"):
         st.session_state.show_past_orders = not st.session_state.show_past_orders
 
     if st.session_state.show_past_orders:
         st.subheader("Your Past Orders")
         if st.session_state.past_orders:
             for order in st.session_state.past_orders[::-1]:
-                st.markdown(f"🗓️ **Date:** {order['date']}")
+                st.markdown(f"🗓**Date:** {order['date']}")
                 for item, qty in order["items"].items():
                     st.markdown(f"- {item} x{qty}")
-                st.markdown(f"💰 **Total:** ₹{order['total']}")
+                st.markdown(f"**Total:** ₹{order['total']}")
                 st.markdown("---")
         else:
             st.info("No past orders yet.")
-
-# ✅ Step 1: Smart Restaurant Finder
-st.markdown("### 🧠 Smart Restaurant Finder")
+st.markdown("Smart Restaurant Finder")
 user_query = st.text_input("e.g., Find me a veg place in Bandra with ETA under 20 mins and 3.5+ rating")
 
 if user_query:
     rag_result = qa_chain.run(user_query)
-    matches_result = restaurant_chain.run({"query": user_query + "\n\nContext:\n" + rag_result})
-
-    # Extract 10 restaurants from the output
+    matches_result = restaurant_chain.run({"query": user_query + "\n\nContext:\n" + rag_result}
     lines = [line.strip() for line in matches_result.split("\n") if re.match(r"\d+\.\s", line)]
     restaurants = []
     for line in lines:
@@ -126,9 +114,7 @@ if user_query:
             restaurants.append(match.group(1).strip())
 
     st.session_state.matched_restaurants = restaurants
-    st.success("✅ Found top matching restaurants!")
-
-# ✅ Step 2: Show Restaurant Buttons
+    st.success("Found top matching restaurants!")
 if st.session_state.matched_restaurants:
     st.markdown("### 🍴 Matching Restaurants")
     for restaurant in st.session_state.matched_restaurants:
@@ -141,11 +127,9 @@ if st.session_state.matched_restaurants:
                 st.session_state.selected_restaurant = restaurant
                 st.session_state.cart = defaultdict(int)
                 st.session_state.customizations = {}
-
-# ✅ Step 3: Show Menu for Selected Restaurant
 if st.session_state.selected_restaurant:
     restaurant = st.session_state.selected_restaurant
-    st.subheader(f"📋 Menu - {restaurant}")
+    st.subheader(f"Menu - {restaurant}")
 
     menu_context = qa_chain.run(f"Give menu of {restaurant}")
     if "as an ai" not in menu_context.lower():
@@ -153,7 +137,7 @@ if st.session_state.selected_restaurant:
         menu_items = [line.strip() for line in menu_output.split("\n") if re.search(r" - ₹\d+", line)]
 
         if not menu_items:
-            st.warning("⚠️ No valid menu items found in the document.")
+            st.warning("No valid menu items found in the document.")
         else:
             for item in menu_items:
                 col1, col2 = st.columns([2, 1])
@@ -165,11 +149,9 @@ if st.session_state.selected_restaurant:
                     st.session_state.cart[item] = qty
                     st.session_state.customizations[item] = cust
     else:
-        st.warning("⚠️ Could not find a real menu in the PDF for this restaurant.")
-
-# ✅ Step 4: Show Cart + Place Order
+        st.warning("Could not find a real menu in the PDF for this restaurant.")
 if st.session_state.cart:
-    st.markdown("### 🛒 Cart")
+    st.markdown("Cart")
     total = 0
     for item, qty in st.session_state.cart.items():
         try:
@@ -189,7 +171,7 @@ if st.session_state.cart:
     **Subtotal**: ₹{total}  
     **GST (5%)**: ₹{tax}  
     **Discount (10%)**: ₹{discount}  
-    ### 💰 Grand Total: ₹{grand_total}
+    Grand Total: ₹{grand_total}
     """)
 
     try:
@@ -199,9 +181,9 @@ if st.session_state.cart:
     except:
         eta = random.randint(25, 40)
 
-    st.info(f"⏰ Expected Delivery Time: {eta} minutes")
+    st.info(f"Expected Delivery Time: {eta} minutes")
 
-    if st.button("✅ Place Order"):
+    if st.button("Place Order"):
         order = {
             "items": dict(st.session_state.cart),
             "total": grand_total,
@@ -211,9 +193,7 @@ if st.session_state.cart:
         st.success("Order placed successfully!")
         st.session_state.cart = defaultdict(int)
         st.session_state.customizations = {}
-
-# 🔁 Reset
-if st.button("🔁 Reset All"):
+if st.button("Reset All"):
     st.session_state.matched_restaurants = []
     st.session_state.selected_restaurant = None
     st.session_state.cart = defaultdict(int)
